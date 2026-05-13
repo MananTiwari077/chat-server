@@ -1,7 +1,6 @@
 #include <iostream>
 #include <winsock2.h>
 
-
 int main() {
     WSADATA wsaData;
 
@@ -12,8 +11,21 @@ int main() {
         return 1;
     }
 
-    std::cout << "Winsock initialized successfully!\n";
+    SOCKET serverSocket = socket(
+        AF_INET,
+        SOCK_STREAM,
+        IPPROTO_TCP
+    );
 
+    if (serverSocket == INVALID_SOCKET) {
+        std::cout << "Socket creation failed!\n";
+        WSACleanup();
+        return 1;
+    }
+
+    std::cout << "Socket created successfully!\n";
+
+    closesocket(serverSocket);
     WSACleanup();
 
     return 0;
