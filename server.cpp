@@ -1,5 +1,6 @@
 #include <iostream>
 #include <winsock2.h>
+#include <ws2tcpip.h>
 
 int main() {
     WSADATA wsaData;
@@ -23,7 +24,28 @@ int main() {
         return 1;
     }
 
-    std::cout << "Socket created successfully!\n";
+    sockaddr_in serverAddress;
+
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_port = htons(54000);
+    serverAddress.sin_addr.s_addr = INADDR_ANY;
+
+    result = bind(
+        serverSocket,
+        (sockaddr*)&serverAddress,
+        sizeof(serverAddress)
+    );
+
+    if (result == SOCKET_ERROR) {
+        std::cout << "Bind failed!\n";
+
+        closesocket(serverSocket);
+        WSACleanup();
+
+        return 1;
+    }
+
+    std::cout << "Bind successful!\n";
 
     closesocket(serverSocket);
     WSACleanup();
