@@ -47,6 +47,31 @@ int main() {
 
     std::cout << "Bind successful!\n";
 
+    result = listen(serverSocket, SOMAXCONN);
+    if(result== SOCKET_ERROR){
+        std::cout<< "Listen failed! \n";
+        closesocket(serverSocket);
+        WSACleanup();
+
+        return 1;
+    }
+    std::cout<< "server is listening on port 54000! \n";
+
+    SOCKET clientSocket =accept(
+        serverSocket,
+        nullptr,
+        nullptr
+    );
+
+    if(clientSocket == INVALID_SOCKET){
+        std::cout<< "accept failed ! \n";
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+    std::cout<< "client connected successfully! \n";
+
+    closesocket(clientSocket);
     closesocket(serverSocket);
     WSACleanup();
 
