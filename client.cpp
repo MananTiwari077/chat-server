@@ -5,7 +5,7 @@
 int main(){
     WSADATA wsaData;
     int result= WSAStartup(MAKEWORD(2,2),&wsaData);
-    
+
     if(result!=0){
         std::cout<< "WSAStartup failed! \n";
         return 1;
@@ -47,6 +47,15 @@ int main(){
     }
 
     std::cout<< "connected to server successfully! \n";
+
+    const char* message = "Hello !";
+
+    send(
+        clientSocket,
+        message,
+        strlen(message) + 1,
+        0
+    );
 
     closesocket(clientSocket);
     WSACleanup();

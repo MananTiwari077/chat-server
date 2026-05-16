@@ -71,6 +71,20 @@ int main() {
     }
     std::cout<< "client connected successfully! \n";
 
+    char buffer[1024] = {0};
+
+    int bytesReceived = recv(
+        clientSocket,
+        buffer,
+        sizeof(buffer),
+        0
+    );
+
+    if (bytesReceived > 0) {
+        std::cout << "Client says: " << buffer << "\n";
+    }
+
+
     closesocket(clientSocket);
     closesocket(serverSocket);
     WSACleanup();
