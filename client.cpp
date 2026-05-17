@@ -1,6 +1,7 @@
 #include <iostream>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <string>
 
 int main(){
     WSADATA wsaData;
@@ -48,14 +49,21 @@ int main(){
 
     std::cout<< "connected to server successfully! \n";
 
-    const char* message = "Hello !";
+    std::string message;
 
-    send(
-        clientSocket,
-        message,
-        strlen(message) + 1,
-        0
-    );
+    while(true){
+        std::getline(std::cin,message);
+        if(message=="exit"){
+            break;
+        }
+        
+        send(
+            clientSocket,
+            message.c_str(),
+            message.length()+1,
+            0
+        );
+    }
 
     closesocket(clientSocket);
     WSACleanup();

@@ -1,6 +1,36 @@
 #include <iostream>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <cstring>
+#include <thread>
+
+void handleClient(SOCKET clientSocket){
+    char buffer[1024];
+    
+    while(true){
+        memset(buffer,0,sizeof(buffer));
+
+        int bytesReceived= recv(
+            clientSocket,
+            buffer,
+            sizeof(buffer),
+            0
+        );
+
+        if(bytesReceived>0){
+            std::cout<< "client says: "<< buffer<< "\n";
+        }
+        else if(bytesReceived==0){
+            std::cout<< "client disconnected! \n";
+            break;
+        }
+        else{
+            std::cout<< "Receive failed! \n";
+            break;
+        }
+    }
+    closesocket(clientSocket);
+}
 
 int main() {
     WSADATA wsaData;
@@ -57,35 +87,24 @@ int main() {
     }
     std::cout<< "server is listening on port 54000! \n";
 
-    SOCKET clientSocket =accept(
-        serverSocket,
-        nullptr,
-        nullptr
-    );
+    while(true){
+        SOCKET clientSocket= accept(
+            serverSocket,
+            nullptr,
+            nullptr
+        );
 
-    if(clientSocket == INVALID_SOCKET){
-        std::cout<< "accept failed ! \n";
-        closesocket(serverSocket);
-        WSACleanup();
-        return 1;
-    }
-    std::cout<< "client connected successfully! \n";
+        if(clientSocket == INVALID_SOCKET){
+            std::cout<< "Accept failed! \n";
+            continue;
+        }
+        std::cout<< "client connected successfully! \n";
 
-    char buffer[1024] = {0};
+        std::thread clientThread(handleClient,clientSocket);
 
-    int bytesReceived = recv(
-        clientSocket,
-        buffer,
-        sizeof(buffer),
-        0
-    );
-
-    if (bytesReceived > 0) {
-        std::cout << "Client says: " << buffer << "\n";
+        clientThread.detach();
     }
 
-
-    closesocket(clientSocket);
     closesocket(serverSocket);
     WSACleanup();
 
