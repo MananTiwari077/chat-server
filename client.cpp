@@ -2,6 +2,28 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <string>
+#include <thread>
+
+void receiveMessages(SOCKET clientSocket){
+    char buffer[1024];
+    
+    while(true){
+        memset(buffer,0,sizeof(buffer));
+
+        int bytesReceived= recv(
+            clientSocket,
+            buffer,
+            sizeof(buffer),
+            0
+        );
+        if(bytesReceived>0){
+            std::cout<< "\nMessage: "<< buffer << "\n";
+        }
+        else{
+            break;
+        }
+    }
+}
 
 int main(){
     WSADATA wsaData;
@@ -48,6 +70,9 @@ int main(){
     }
 
     std::cout<< "connected to server successfully! \n";
+
+    std::thread receiveThread(receiveMessages,clientSocket);
+    receiveThread.detach();
 
     std::string message;
 

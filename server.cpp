@@ -3,10 +3,13 @@
 #include <ws2tcpip.h>
 #include <cstring>
 #include <thread>
+#include <vector>
+
+std::vector<SOCKET> clients;
 
 void handleClient(SOCKET clientSocket){
     char buffer[1024];
-    
+
     while(true){
         memset(buffer,0,sizeof(buffer));
 
@@ -18,7 +21,18 @@ void handleClient(SOCKET clientSocket){
         );
 
         if(bytesReceived>0){
-            std::cout<< "client says: "<< buffer<< "\n";
+            std::cout<< "Client says:"<<buffer<< "\n";
+
+            for(SOCKET socket : clients){
+                if(socket!=clientSocket){
+                    send(
+                        socket,
+                        buffer,
+                        strlen(buffer)+1,
+                        0
+                    );
+                }
+            }
         }
         else if(bytesReceived==0){
             std::cout<< "client disconnected! \n";
@@ -99,6 +113,8 @@ int main() {
             continue;
         }
         std::cout<< "client connected successfully! \n";
+
+        clients.push_back(clientSocket);
 
         std::thread clientThread(handleClient,clientSocket);
 
