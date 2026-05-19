@@ -4,7 +4,10 @@
 #include <cstring>
 #include <thread>
 #include <vector>
+#include <mutex>
+#include <algorithm>
 
+std::mutex clientsMutex;
 std::vector<SOCKET> clients;
 
 void handleClient(SOCKET clientSocket){
@@ -22,7 +25,8 @@ void handleClient(SOCKET clientSocket){
 
         if(bytesReceived>0){
             std::cout<< "Client says:"<<buffer<< "\n";
-
+            {
+            std::lock_guard<std::mutex> lock(clientsMutex);
             for(SOCKET socket : clients){
                 if(socket!=clientSocket){
                     send(
@@ -32,6 +36,7 @@ void handleClient(SOCKET clientSocket){
                         0
                     );
                 }
+            }
             }
         }
         else if(bytesReceived==0){
@@ -43,6 +48,19 @@ void handleClient(SOCKET clientSocket){
             break;
         }
     }
+
+    {
+        std::lock_guard<std::mutex> lock(clientsMutex);
+        clients.erase(
+            std::remove(
+                clients.begin(),
+                clients.end(),
+                clientSocket
+            ),
+            clients.end()
+        );
+    }
+    
     closesocket(clientSocket);
 }
 
@@ -114,6 +132,7 @@ int main() {
         }
         std::cout<< "client connected successfully! \n";
 
+        std::lock_guard<std::mutex> lock(clientsMutex);
         clients.push_back(clientSocket);
 
         std::thread clientThread(handleClient,clientSocket);
