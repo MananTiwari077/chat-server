@@ -7,30 +7,37 @@
 #include <mutex>
 #include <algorithm>
 
-std::mutex clientsMutex;
-std::vector<SOCKET> clients;
+struct Client{
+    SOCKET socket;
+    int id;
+};
 
-void handleClient(SOCKET clientSocket){
+std::mutex clientsMutex;
+int nextClientId=1;
+std::vector<Client> clients;
+
+void handleClient(Client client){
     char buffer[1024];
 
     while(true){
         memset(buffer,0,sizeof(buffer));
 
         int bytesReceived= recv(
-            clientSocket,
+            client.socket,
             buffer,
             sizeof(buffer),
             0
         );
 
         if(bytesReceived>0){
-            std::cout<< "Client says:"<<buffer<< "\n";
+            std::cout<< "client"<< client.id << ": " << buffer<< "\n";
+
             {
             std::lock_guard<std::mutex> lock(clientsMutex);
-            for(SOCKET socket : clients){
-                if(socket!=clientSocket){
+            for(Client otherClient : clients){
+                if(otherClient.socket!=client.socket){
                     send(
-                        socket,
+                        otherClient.socket,
                         buffer,
                         strlen(buffer)+1,
                         0
@@ -40,28 +47,31 @@ void handleClient(SOCKET clientSocket){
             }
         }
         else if(bytesReceived==0){
-            std::cout<< "client disconnected! \n";
             break;
         }
         else{
-            std::cout<< "Receive failed! \n";
             break;
         }
     }
 
+    std::cout<< "client "<< client.id<< "disconnected. \n";
+
     {
         std::lock_guard<std::mutex> lock(clientsMutex);
         clients.erase(
-            std::remove(
+            std::remove_if(
                 clients.begin(),
                 clients.end(),
-                clientSocket
-            ),
-            clients.end()
-        );
+
+                [&](const Client& c){
+                return c.socket==client.socket;
+            }
+        ),
+        clients.end()
+    );
     }
-    
-    closesocket(clientSocket);
+
+    closesocket(client.socket);
 }
 
 int main() {
@@ -130,12 +140,22 @@ int main() {
             std::cout<< "Accept failed! \n";
             continue;
         }
-        std::cout<< "client connected successfully! \n";
+        std::cout<< "client " << newClient.id << " connected. \n";
 
         std::lock_guard<std::mutex> lock(clientsMutex);
-        clients.push_back(clientSocket);
 
-        std::thread clientThread(handleClient,clientSocket);
+        Client newClient;
+        newClient.socket=clientSocket;
+        newClient.id=nextClientId++;
+
+        {
+            std::lock_guard<std::mutex>lock(clientsMutex);
+            clients.push_back(newClient);
+        }
+
+        std::cout<< "client" << newClient.id << "connected. \n";
+
+        std::thread clientThread(handleClient,newClient);
 
         clientThread.detach();
     }
