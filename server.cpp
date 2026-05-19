@@ -6,6 +6,9 @@
 #include <vector>
 #include <mutex>
 #include <algorithm>
+#include <atomic>
+
+std::atomic<bool> serverRunning(true);
 
 struct Client{
     SOCKET socket;
@@ -30,18 +33,27 @@ void handleClient(Client client){
         );
 
         if(bytesReceived>0){
-            std::cout<< "client"<< client.id << ": " << buffer<< "\n";
+            std::string fullMessage= "client"+ 
+            std::to_string(client.id)+
+            ": "+
+            buffer;
+
+            std::cout<< fullMessage<< " \n";
 
             {
             std::lock_guard<std::mutex> lock(clientsMutex);
             for(Client otherClient : clients){
                 if(otherClient.socket!=client.socket){
-                    send(
+                    int bytesSent= send(
                         otherClient.socket,
-                        buffer,
-                        strlen(buffer)+1,
+                        fullMessage.c_str(),
+                        fullMessage.length()+1,
                         0
                     );
+
+                    if(bytesSent==SOCKET_ERROR){
+                        std::cout<<"Failed to send message to client "<< otherClient.id << "\n";
+                    }
                 }
             }
             }
@@ -72,6 +84,17 @@ void handleClient(Client client){
     }
 
     closesocket(client.socket);
+}
+
+void shutdownServer(){
+    std::string command;
+    while(true){
+        std::getline(std::cin,command);
+        if(command=="shutdown"){
+            serverRunning=false;
+            break;
+        }
+    }
 }
 
 int main() {
@@ -129,7 +152,10 @@ int main() {
     }
     std::cout<< "server is listening on port 54000! \n";
 
-    while(true){
+    while(serverRunning){
+        std::thread shutdownThread(shutdownServer);
+        shutdownThread.detach();
+        
         SOCKET clientSocket= accept(
             serverSocket,
             nullptr,
@@ -140,7 +166,6 @@ int main() {
             std::cout<< "Accept failed! \n";
             continue;
         }
-        std::cout<< "client " << newClient.id << " connected. \n";
 
         std::lock_guard<std::mutex> lock(clientsMutex);
 
