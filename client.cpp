@@ -27,9 +27,9 @@ void receiveMessages(SOCKET clientSocket){
 
 int main(){
     WSADATA wsaData;
-    int result= WSAStartup(MAKEWORD(2,2),&wsaData);
+    int wsaStartupResult = WSAStartup(MAKEWORD(2,2),&wsaData);
 
-    if(result!=0){
+    if(wsaStartupResult!=0){
         std::cout<< "WSAStartup failed! \n";
         return 1;
     }
@@ -56,13 +56,13 @@ int main(){
         &serverAddress.sin_addr
     );
 
-    result = connect(
+    int connectResult = connect(
         clientSocket,
         (sockaddr*)&serverAddress,
         sizeof(serverAddress)
     );
     
-    if(result==SOCKET_ERROR){
+    if(connectResult==SOCKET_ERROR){
         std::cout<< "connection failed!\n";
         closesocket(clientSocket);
         WSACleanup();

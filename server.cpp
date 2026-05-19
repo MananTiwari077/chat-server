@@ -7,14 +7,15 @@
 #include <mutex>
 #include <algorithm>
 #include <atomic>
+#include <string>
 
-std::atomic<bool> serverRunning(true);
 
 struct Client{
     SOCKET socket;
     int id;
 };
 
+std::atomic<bool> serverRunning(true);
 std::mutex clientsMutex;
 int nextClientId=1;
 std::vector<Client> clients;
@@ -62,6 +63,7 @@ void handleClient(Client client){
             break;
         }
         else{
+            std::cout<< "Receive failed! \n";
             break;
         }
     }
@@ -100,9 +102,9 @@ void shutdownServer(){
 int main() {
     WSADATA wsaData;
 
-    int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    int wsaStartupResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 
-    if (result != 0) {
+    if (wsaStartupResult != 0) {
         std::cout << "WSAStartup failed!\n";
         return 1;
     }
@@ -125,13 +127,13 @@ int main() {
     serverAddress.sin_port = htons(54000);
     serverAddress.sin_addr.s_addr = INADDR_ANY;
 
-    result = bind(
+    int bindResult = bind(
         serverSocket,
         (sockaddr*)&serverAddress,
         sizeof(serverAddress)
     );
 
-    if (result == SOCKET_ERROR) {
+    if (bindResult == SOCKET_ERROR) {
         std::cout << "Bind failed!\n";
 
         closesocket(serverSocket);
@@ -142,8 +144,8 @@ int main() {
 
     std::cout << "Bind successful!\n";
 
-    result = listen(serverSocket, SOMAXCONN);
-    if(result== SOCKET_ERROR){
+    int listenResult = listen(serverSocket, SOMAXCONN);
+    if(listenResult== SOCKET_ERROR){
         std::cout<< "Listen failed! \n";
         closesocket(serverSocket);
         WSACleanup();
@@ -152,10 +154,12 @@ int main() {
     }
     std::cout<< "server is listening on port 54000! \n";
 
+    std::thread shutdownThread(shutdownServer);
+    shutdownThread.detach();
+
     while(serverRunning){
-        std::thread shutdownThread(shutdownServer);
-        shutdownThread.detach();
         
+        std::cout<< "waiting for client \n";
         SOCKET clientSocket= accept(
             serverSocket,
             nullptr,
@@ -167,8 +171,6 @@ int main() {
             continue;
         }
 
-        std::lock_guard<std::mutex> lock(clientsMutex);
-
         Client newClient;
         newClient.socket=clientSocket;
         newClient.id=nextClientId++;
@@ -178,7 +180,7 @@ int main() {
             clients.push_back(newClient);
         }
 
-        std::cout<< "client" << newClient.id << "connected. \n";
+        std::cout<< "client " << newClient.id << "connected. \n";
 
         std::thread clientThread(handleClient,newClient);
 
