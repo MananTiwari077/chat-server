@@ -13,6 +13,7 @@
 struct Client{
     SOCKET socket;
     int id;
+    std::string username;
 };
 
 std::atomic<bool> serverRunning(true);
@@ -22,6 +23,16 @@ std::vector<Client> clients;
 
 void handleClient(Client client){
     char buffer[1024];
+    char usernameBuffer[1024];
+
+    recv(client.socket,
+        usernameBuffer,
+        sizeof(usernameBuffer),
+        0
+    );
+    client.username= usernameBuffer;
+
+    std::cout<< client.username<< "connected. \n";
 
     while(true){
         memset(buffer,0,sizeof(buffer));
@@ -34,10 +45,7 @@ void handleClient(Client client){
         );
 
         if(bytesReceived>0){
-            std::string fullMessage= "client"+ 
-            std::to_string(client.id)+
-            ": "+
-            buffer;
+            std::string fullMessage= client.username + ": "+ buffer;
 
             std::cout<< fullMessage<< " \n";
 
@@ -159,7 +167,6 @@ int main() {
 
     while(serverRunning){
         
-        std::cout<< "waiting for client \n";
         SOCKET clientSocket= accept(
             serverSocket,
             nullptr,
@@ -180,7 +187,6 @@ int main() {
             clients.push_back(newClient);
         }
 
-        std::cout<< "client " << newClient.id << "connected. \n";
 
         std::thread clientThread(handleClient,newClient);
 

@@ -71,6 +71,17 @@ int main(){
 
     std::cout<< "connected to server successfully! \n";
 
+    std::string username;
+    std::cout<< "Enter your username:";
+    std::getline(std::cin,username);
+
+    send(
+        clientSocket,
+        username.c_str(),
+        username.length()+1,
+        0
+    );
+
     std::thread receiveThread(receiveMessages,clientSocket);
     receiveThread.detach();
 
@@ -81,6 +92,10 @@ int main(){
         if(message=="exit"){
             break;
         }
+        
+
+
+
         
         send(
             clientSocket,
