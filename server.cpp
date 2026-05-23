@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <atomic>
 #include <string>
+#include <sstream>
 
 
 struct Client{
@@ -21,6 +22,24 @@ std::mutex clientsMutex;
 int nextClientId=1;
 std::vector<Client> clients;
 
+void broadcastMessage(const std::string &message, SOCKET senderSocket = INVALID_SOCKET){
+    std::lock_guard<std::mutex> lock(clientsMutex);
+    for(Client client : clients){
+        if(client.socket!=senderSocket){
+            int bytesSent= send(
+                client.socket,
+                message.c_str(),
+                message.length()+1,
+                0
+            );
+
+            if(bytesSent== SOCKET_ERROR){
+                std::cout<< "Failed to send message to "<< client.username<< "\n";
+            }
+        }
+    }
+}
+
 void handleClient(Client client){
     char buffer[1024];
     char usernameBuffer[1024];
@@ -30,9 +49,12 @@ void handleClient(Client client){
         sizeof(usernameBuffer),
         0
     );
+
     client.username= usernameBuffer;
 
-    std::cout<< client.username<< "connected. \n";
+    std::cout<< client.username<< " connected. \n";
+
+    broadcastMessage("[Server]: "+client.username+" joined the chat.", client.socket);
 
     while(true){
         memset(buffer,0,sizeof(buffer));
@@ -44,39 +66,88 @@ void handleClient(Client client){
             0
         );
 
-        if(bytesReceived>0){
-            std::string fullMessage= client.username + ": "+ buffer;
+        if(bytesReceived > 0){
+            std::string message= buffer;
 
-            std::cout<< fullMessage<< " \n";
+            if(!message.empty() && message[0]== '/'){
+                if(message=="/list"){
+                    std::string userList= "[Server] Online users: ";
 
-            {
-            std::lock_guard<std::mutex> lock(clientsMutex);
-            for(Client otherClient : clients){
-                if(otherClient.socket!=client.socket){
-                    int bytesSent= send(
-                        otherClient.socket,
-                        fullMessage.c_str(),
-                        fullMessage.length()+1,
-                        0
-                    );
-
-                    if(bytesSent==SOCKET_ERROR){
-                        std::cout<<"Failed to send message to client "<< otherClient.id << "\n";
+                    std::lock_guard<std::mutex> lock(clientsMutex);
+                    for(Client c: clients){
+                        userList+=c.username + " ";
                     }
+                    send(client.socket,userList.c_str(),userList.length()+1, 0);
                 }
+                else if(message.rfind("/whisper ", 0)==0){
+                    std::stringstream ss(message);
+                    
+                    std::string command, targetUsername, whisperMessage;
+
+                    ss>> command;
+                    ss>> targetUsername;
+
+                    std::getline(ss, whisperMessage);
+
+                    if(!whisperMessage.empty() && whisperMessage[0]==' '){
+                        whisperMessage.erase(0,1);
+                    }
+                    bool userFound = false;
+
+                    std::lock_guard<std::mutex> lock(clientsMutex);
+                    for(Client c: clients){
+                        if(c.username== targetUsername){
+                            std::string privateMessage= "[Whisper] "+client.username+": " + whisperMessage;
+
+                            send(
+                                c.socket,
+                                privateMessage.c_str(),
+                                privateMessage.length()+1,
+                                0
+                            );
+
+                            userFound=true;
+                            break;                  
+                        }
+                    }
+                    if(!userFound){
+                        std::string errorMessage="[Server] user not found.\n";
+
+                        send(
+                            client.socket,
+                            errorMessage.c_str(),
+                            errorMessage.length()+1,
+                            0
+                        );
+                    }
+
+                }
+
             }
+             
+            else{
+                std::string fullMessage= client.username + ": "+ message;
+                std::cout<<fullMessage<< "\n";
+
+                broadcastMessage(fullMessage,client.socket);
             }
+
         }
         else if(bytesReceived==0){
             break;
         }
         else{
-            std::cout<< "Receive failed! \n";
+
+            int error = WSAGetLastError();
+            if(error != WSAECONNRESET){
+                std::cout<< "receive failed with error: "<< error<< "\n";
+            }
             break;
         }
     }
+    std::cout<< client.username<< " disconnected. \n";
 
-    std::cout<< "client "<< client.id<< "disconnected. \n";
+    broadcastMessage("[Server]: "+client.username+" left the chat.", client.socket);
 
     {
         std::lock_guard<std::mutex> lock(clientsMutex);
