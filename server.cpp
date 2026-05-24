@@ -10,6 +10,7 @@
 #include <string>
 #include <sstream>
 
+std::vector<std::string> chatHistory;
 
 struct Client{
     SOCKET socket;
@@ -26,10 +27,12 @@ void broadcastMessage(const std::string &message, SOCKET senderSocket = INVALID_
     std::lock_guard<std::mutex> lock(clientsMutex);
     for(Client client : clients){
         if(client.socket!=senderSocket){
+            std::string formatedMessage= message + "\n";
+
             int bytesSent= send(
                 client.socket,
-                message.c_str(),
-                message.length()+1,
+                formatedMessage.c_str(),
+                formatedMessage.length()+1,
                 0
             );
 
@@ -54,7 +57,36 @@ void handleClient(Client client){
 
     std::cout<< client.username<< " connected. \n";
 
+    {
+        std::lock_guard<std::mutex> lock(clientsMutex);
+        for(Client &c:clients){
+            if(c.socket==client.socket){
+                c.username= client.username;
+                break;
+            }
+        }
+    }
+
     broadcastMessage("[Server]: "+client.username+" joined the chat.", client.socket);
+
+    std::string historyBlock;
+    {
+        std::lock_guard<std::mutex> lock(clientsMutex);
+
+        for (const std::string& oldMessage : chatHistory) {
+            historyBlock += oldMessage + "\n";
+        }
+    }
+
+    if (!historyBlock.empty()) {
+
+        send(
+            client.socket,
+            historyBlock.c_str(),
+            historyBlock.length() + 1,
+            0
+        );
+    }
 
     while(true){
         memset(buffer,0,sizeof(buffer));
@@ -77,8 +109,15 @@ void handleClient(Client client){
                     for(Client c: clients){
                         userList+=c.username + " ";
                     }
-                    send(client.socket,userList.c_str(),userList.length()+1, 0);
+
+                    userList+= "\n";
+
+                    send(client.socket,
+                        userList.c_str(),
+                        userList.length()+1,
+                        0);
                 }
+
                 else if(message.rfind("/whisper ", 0)==0){
                     std::stringstream ss(message);
                     
@@ -98,6 +137,7 @@ void handleClient(Client client){
                     for(Client c: clients){
                         if(c.username== targetUsername){
                             std::string privateMessage= "[Whisper] "+client.username+": " + whisperMessage;
+                            privateMessage+= "\n";
 
                             send(
                                 c.socket,
@@ -112,6 +152,7 @@ void handleClient(Client client){
                     }
                     if(!userFound){
                         std::string errorMessage="[Server] user not found.\n";
+                        errorMessage+="\n";
 
                         send(
                             client.socket,
@@ -128,6 +169,11 @@ void handleClient(Client client){
             else{
                 std::string fullMessage= client.username + ": "+ message;
                 std::cout<<fullMessage<< "\n";
+
+                {
+                    std::lock_guard<std::mutex> lock(clientsMutex);
+                    chatHistory.push_back(fullMessage);
+                }
 
                 broadcastMessage(fullMessage,client.socket);
             }
