@@ -9,13 +9,21 @@
 #include <atomic>
 #include <string>
 #include <sstream>
+#include <unordered_map>
 
-std::vector<std::string> chatHistory;
+
+std::unordered_map<std::string, int> roomCounts;
+
+std::unordered_map<
+    std::string,
+    std::vector<std::string>
+> roomHistory;
 
 struct Client{
     SOCKET socket;
     int id;
     std::string username;
+    std::string room;
 };
 
 std::atomic<bool> serverRunning(true);
@@ -23,10 +31,11 @@ std::mutex clientsMutex;
 int nextClientId=1;
 std::vector<Client> clients;
 
-void broadcastMessage(const std::string &message, SOCKET senderSocket = INVALID_SOCKET){
+
+void broadcastMessage(const std::string &message, const std::string &room, SOCKET senderSocket = INVALID_SOCKET){
     std::lock_guard<std::mutex> lock(clientsMutex);
     for(Client client : clients){
-        if(client.socket!=senderSocket){
+        if(client.socket!=senderSocket && client.room==room){
             std::string formatedMessage= message + "\n";
 
             int bytesSent= send(
@@ -55,6 +64,8 @@ void handleClient(Client client){
 
     client.username= usernameBuffer;
 
+    client.room="general";
+
     std::cout<< client.username<< " connected. \n";
 
     {
@@ -62,18 +73,19 @@ void handleClient(Client client){
         for(Client &c:clients){
             if(c.socket==client.socket){
                 c.username= client.username;
+                c.room= client.room;
                 break;
             }
         }
     }
 
-    broadcastMessage("[Server]: "+client.username+" joined the chat.", client.socket);
+    broadcastMessage("[Server]: "+client.username+" joined the chat.", client.room, client.socket);
 
     std::string historyBlock;
     {
         std::lock_guard<std::mutex> lock(clientsMutex);
 
-        for (const std::string& oldMessage : chatHistory) {
+        for (const std::string& oldMessage : roomHistory[client.room]) {
             historyBlock += oldMessage + "\n";
         }
     }
@@ -102,6 +114,7 @@ void handleClient(Client client){
             std::string message= buffer;
 
             if(!message.empty() && message[0]== '/'){
+                
                 if(message=="/list"){
                     std::string userList= "[Server] Online users: ";
 
@@ -150,6 +163,7 @@ void handleClient(Client client){
                             break;                  
                         }
                     }
+                    
                     if(!userFound){
                         std::string errorMessage="[Server] user not found.\n";
                         errorMessage+="\n";
@@ -161,6 +175,54 @@ void handleClient(Client client){
                             0
                         );
                     }
+                }
+                else if(message.rfind("/join ", 0)==0){
+                    std::string newRoom= message.substr(6);
+                    std::string oldRoom= client.room;
+                    client.room=newRoom;
+
+                    {
+                        std::lock_guard<std::mutex> lock(clientsMutex);
+                        for(Client &c: clients){
+                            if(c.socket==client.socket){
+                                c.room = newRoom;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    std::string joinMessage= "[Server] You joined room: "+newRoom+"\n";
+
+                    send(
+                        client.socket,
+                        joinMessage.c_str(),
+                        joinMessage.length()+1,
+                        0
+                    );
+
+                    broadcastMessage("[Server] " + client.username + " joined the room.", newRoom , client.socket);
+
+                }
+
+                else if(message== "/rooms"){
+                    
+                    for(const Client& c: clients){
+                        roomCounts[c.room]++;
+                    }
+
+                    std::string roomsList= "Active rooms: \n";
+                    for(const auto &room: roomCounts){
+                        roomsList+=room.first;
+                        roomsList+= "(" + std::to_string(room.second)+")\n";
+                    }
+
+                    send(
+                        client.socket,
+                        roomsList.c_str(),
+                        roomsList.size(),
+                        0
+                    );
+
 
                 }
 
@@ -172,10 +234,10 @@ void handleClient(Client client){
 
                 {
                     std::lock_guard<std::mutex> lock(clientsMutex);
-                    chatHistory.push_back(fullMessage);
+                    roomHistory[client.room].push_back(fullMessage);
                 }
 
-                broadcastMessage(fullMessage,client.socket);
+                broadcastMessage(fullMessage,client.room, client.socket);
             }
 
         }
@@ -193,7 +255,7 @@ void handleClient(Client client){
     }
     std::cout<< client.username<< " disconnected. \n";
 
-    broadcastMessage("[Server]: "+client.username+" left the chat.", client.socket);
+    broadcastMessage("[Server]: "+client.username+" left the chat.",client.room,  client.socket);
 
     {
         std::lock_guard<std::mutex> lock(clientsMutex);
