@@ -19,6 +19,8 @@ std::unordered_map<
     std::vector<std::string>
 > roomHistory;
 
+std::mutex historyMutex;
+
 struct Client{
     SOCKET socket;
     int id;
@@ -81,9 +83,9 @@ void handleClient(Client client){
 
     broadcastMessage("[Server]: "+client.username+" joined the chat.", client.room, client.socket);
 
-    std::string historyBlock;
+    std::string historyBlock="\n--- Recent Messages ---\n";
     {
-        std::lock_guard<std::mutex> lock(clientsMutex);
+        std::lock_guard<std::mutex> lock(historyMutex);
 
         for (const std::string& oldMessage : roomHistory[client.room]) {
             historyBlock += oldMessage + "\n";
@@ -117,7 +119,7 @@ void handleClient(Client client){
                 
                 if(message=="/list"){
                     std::string userList= "[Server] Online users: ";
-
+                
                     std::lock_guard<std::mutex> lock(clientsMutex);
                     for(Client c: clients){
                         userList+=c.username + " ";
@@ -202,6 +204,23 @@ void handleClient(Client client){
 
                     broadcastMessage("[Server] " + client.username + " joined the room.", newRoom , client.socket);
 
+                    std::string historyBlock= "\n --- Recent Messages ---\n";
+
+                    {
+                        std::lock_guard<std::mutex>lock(historyMutex);
+                        for(const std::string &oldMessage: roomHistory[newRoom]){
+                            historyBlock+=oldMessage + "\n";
+                        }
+                    }
+                    if(!historyBlock.empty()){
+                        send(
+                            client.socket,
+                            historyBlock.c_str(),
+                            historyBlock.size(),
+                            0
+                        );
+                    }
+
                 }
 
                 else if(message== "/rooms"){
@@ -223,17 +242,16 @@ void handleClient(Client client){
                         0
                     );
 
-
                 }
-
-            }
+                }
              
             else{
                 std::string fullMessage= client.username + ": "+ message;
                 std::cout<<fullMessage<< "\n";
 
+
                 {
-                    std::lock_guard<std::mutex> lock(clientsMutex);
+                    std::lock_guard<std::mutex> lock(historyMutex);
                     roomHistory[client.room].push_back(fullMessage);
                 }
 
