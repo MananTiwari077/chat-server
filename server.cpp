@@ -102,6 +102,7 @@ void handleClient(Client client){
         );
     }
 
+
     while(true){
         memset(buffer,0,sizeof(buffer));
 
@@ -243,7 +244,71 @@ void handleClient(Client client){
                     );
 
                 }
+
+                else if(message.rfind("/rename",0)==0){
+                    if(message.length()<=8){
+                        std::string errorMsg= "[Server] Usage: /rename <new_username> \n";
+                        send(
+                            client.socket,
+                            errorMsg.c_str(),
+                            errorMsg.length()+1,
+                            0
+                        );
+                    }
+                    else{
+                        std::string newUsername= message.substr(8);
+                        std::string oldUsername= client.username;
+                        bool usernameTaken = false;
+
+                        {
+                            std::lock_guard<std::mutex> lock(clientsMutex);
+                            for(const Client &c:clients){
+                                if(c.username == newUsername){
+                                    usernameTaken=true;
+                                    break;
+                                }
+                            }
+                            
+                            if(!usernameTaken){
+                                client.username = newUsername;
+
+                                for(Client &c: clients){
+                                    if(c.socket == client.socket){
+                                        c.username = newUsername;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if(usernameTaken){
+                            std::string errorMsg= "[Server]: Username already taken. \n";
+
+                            send(
+                                client.socket,
+                                errorMsg.c_str(),
+                                errorMsg.length()+1,
+                                0
+                            );          
+
+                        }
+
+                        else{
+                            std::string renameMsg= "[Server]: "+ oldUsername + " changed username to "+ newUsername + "\n";
+                            broadcastMessage(renameMsg, client.room, client.socket);
+
+                            std::string successMsg="[Server]: Username changed to "+ newUsername + "\n";
+
+                            send(
+                                client.socket,
+                                successMsg.c_str(),
+                                successMsg.length()+1,
+                                0
+                            );
+                        }
+                    }
                 }
+            }
              
             else{
                 std::string fullMessage= client.username + ": "+ message;
