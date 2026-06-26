@@ -123,7 +123,7 @@ void handleClient(Client client){
                 
                     std::lock_guard<std::mutex> lock(clientsMutex);
                     for(Client c: clients){
-                        userList+=c.username + " ";
+                        userList+="\n" + c.username;
                     }
 
                     userList+= "\n";
@@ -217,7 +217,7 @@ void handleClient(Client client){
                         send(
                             client.socket,
                             historyBlock.c_str(),
-                            historyBlock.size(),
+                            historyBlock.length()+1,
                             0
                         );
                     }
@@ -226,8 +226,14 @@ void handleClient(Client client){
 
                 else if(message== "/rooms"){
                     
-                    for(const Client& c: clients){
-                        roomCounts[c.room]++;
+                    roomCounts.clear();
+
+                    {
+                        std::lock_guard<std::mutex> lock(clientsMutex);
+
+                        for(const Client& c: clients){
+                            roomCounts[c.room]++;
+                        }
                     }
 
                     std::string roomsList= "Active rooms: \n";
@@ -239,7 +245,7 @@ void handleClient(Client client){
                     send(
                         client.socket,
                         roomsList.c_str(),
-                        roomsList.size(),
+                        roomsList.length()+1,
                         0
                     );
 
@@ -308,14 +314,73 @@ void handleClient(Client client){
                         }
                     }
                 }
+
+                else if(message=="/help"){
+                    std::string helpMsg= 
+                    "==============HELP MENU==============\n"
+                    "/help - Show all commands\n"
+                    "/list - Show all online users\n"
+                    "/rooms - Show all active rooms\n"
+                    "/join <room name> - Join a room. Creates the room if it doesn't exist\n"
+                    "/whisper <username> <message> - Send a private message to a user\n"
+                    "/rename <new username> - Change your username\n"
+                    "/stats - Show server statistics\n"
+                    "=====================================\n";
+
+                    send(
+                        client.socket,
+                        helpMsg.c_str(),
+                        helpMsg.length()+1,
+                        0
+                    );
+                }
+
+                else if(message=="/stats"){
+                    
+                    int usersOnline;
+                    {
+                        std::lock_guard<std::mutex> lock(clientsMutex);
+                        usersOnline = clients.size();
+                    }
+
+                    int activeRooms;
+                    int messagesInRoom;
+                    int totalMessages=0;
+                    {
+                        std::lock_guard<std::mutex> lock(historyMutex);
+
+                        activeRooms = roomHistory.size();
+                        messagesInRoom = roomHistory[client.room].size();
+
+                        for(const auto &room:roomHistory){
+                            totalMessages+= room.second.size();
+                    }
+                    }
+                    
+                    std::string statsMsg= 
+                    "=============================SERVER STATS============================\n"
+                    "Users online: "+ std::to_string(usersOnline)+ "\n"+
+                    "Active rooms: "+ std::to_string(activeRooms)+ "\n"+
+                    "Current room: "+ client.room + "\n"+
+                    "Messages in current room: "+ std::to_string(messagesInRoom)+ "\n"+
+                    "Total messages: "+ std::to_string(totalMessages)+ "\n"+
+                    "======================================================================\n";
+
+                    send(
+                        client.socket,
+                        statsMsg.c_str(),
+                        statsMsg.length()+1,
+                        0
+                    );
+                }
+
             }
              
             else{
                 std::string fullMessage= client.username + ": "+ message;
                 std::cout<<fullMessage<< "\n";
 
-
-                {
+                if(!message.empty()){
                     std::lock_guard<std::mutex> lock(historyMutex);
                     roomHistory[client.room].push_back(fullMessage);
                 }
