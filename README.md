@@ -75,7 +75,7 @@ No tunneling software is required.
 
 ---
 
-## Option 3 — Internet Connection (Using Bore. you will have to setup bore to do)
+## Option 3 — Internet Connection (Using Bore. you will have to setup bore to do this)
 
 To allow users outside your local network to connect:
 
