@@ -1,117 +1,151 @@
-# Multi-Client Chat Server (C++)
+# Multi-Client TCP Chat Server (C++)
 
-> [!IMPORTANT]
->
-> ##  Quick Start
->
-> This project is built for **Windows** using **WinSock2**.
->
-> ### 1. Build the project
->
-> ```powershell
-> ./build
-> ```
->
-> ### 2. Start the server
->
-> ```powershell
-> ./server
-> ```
->
-> ### 3. Start one or more clients
->
-> Open a new terminal for each client and run:
->
-> ```powershell
-> ./client
-> ```
->
-> You're now ready to chat!
+A terminal-based multi-client chat application built in C++ using the Winsock2 API. The server supports multiple concurrent users, chat rooms, room history, user management commands, and can be accessed over localhost, a local network (LAN), or the public internet.
 
 ---
 
-## Overview
+#  Quick Start
 
-A multithreaded terminal-based chat server built in **C++** using **TCP sockets** and **WinSock2**.
+## 1. Build the Project
 
-The server supports multiple clients simultaneously, private messaging, multiple chat rooms, room history, username management, and various utility commands while ensuring thread safety through mutex synchronization.
+Run:
+./build
 
-This project was built to strengthen my understanding of:
 
-* Socket Programming
-* Multithreading
-* Synchronization using Mutexes
-* Client-Server Architecture
-* TCP Communication
-* Command Parsing
-* Shared Resource Management
+---
+
+## 2. Start the Server
+
+Run:
+./server
+
+
+(Leave the server running while clients connect.)
+
+---
+
+# Running the Client
+
+Start the client:
+
+Run:
+./client
+
+
+The client will ask for:
+
+* Server hostname/IP
+* Server port
+* Username
+
+Choose one of the connection methods below.
+
+---
+
+# Connection Methods
+
+## Option 1 — Same Computer (Localhost)
+
+If both the server and client are running on the same machine:
+
+Host:127.0.0.1
+Port:54000
+
+
+No additional setup is required.
+
+---
+
+## Option 2 — Local Network (LAN)
+
+If the server and client are connected to the same Wi-Fi or local network:
+
+1. Find the server computer's IPv4 address (for example using 'ipconfig' on Windows).
+
+Example:
+192.168.1.42
+
+
+2. On the client enter:
+
+Host:192.168.1.42
+Port:54000
+
+No tunneling software is required.
+
+---
+
+## Option 3 — Internet Connection (Using Bore. you will have to setup bore to do)
+
+To allow users outside your local network to connect:
+
+### Start the server
+./server
+
+
+### Start Bore
+bore local 54000 --to bore.pub
+
+
+Bore will print something similar to:
+Listening at bore.pub:42871
+
+
+Share these details with anyone connecting:
+
+Host: bore.pub
+Port: 42871
+
+
+*(The port changes each time Bore starts.)*
+
+Clients simply enter the provided hostname and port when prompted.
 
 ---
 
 # Features
 
-*  Real-time multi-client communication
-*  Multiple chat rooms
-*  Room-specific message history
-*  Online user listing
-*  Thread-safe shared resources using mutexes
-*  Private messaging
-*  Username renaming
-*  Server statistics
-*  Active room statistics
-*  Join, leave and rename notifications
-*  Duplicate username protection
+* Multi-client TCP server
+* Concurrent client handling using threads
+* Multiple chat rooms
+* Room-specific message history
+* Username changes
+* List online users
+* List active rooms
+* Thread-safe shared data using mutexes
+* Hostname support using 'getaddrinfo()'
+* Supports localhost, LAN, and internet connections
 
 ---
 
-# Supported Commands
+# Commands
 
-| Command                     | Description                    |
-| --------------------------- | ------------------------------ |
-| `/help`                     | Display all available commands |
-| `/list`                     | Show all connected users       |
-| `/join <room>`              | Join or create a room          |
-| `/rooms`                    | Display all active rooms       |
-| `/whisper <user> <message>` | Send a private message         |
-| `/rename <new_name>`        | Change your username           |
-| `/stats`                    | Display server statistics      |
-
+| Command            | Description                    |
+| ------------------ | ------------------------------ |
+| '/help'            | Display all available commands |
+| '/join <room>'     | Join or create a room          |
+| '/leave'           | Leave the current room         |
+| '/rooms'           | List all active rooms          |
+| '/users'           | List all online users          |
+| '/name <new_name>' | Change your username           |
+| '/stats            | Display server stats           |
 ---
 
 # Technologies Used
 
-* C++17
-* WinSock2
+* C++
+* Winsock2
 * TCP Sockets
-* Multithreading (`std::thread`)
-* Mutex (`std::mutex`)
-* STL Containers
+* Multithreading ('std::thread')
+* Mutexes ('std::mutex')
+* 'getaddrinfo()' for hostname resolution
+* Bore (optional, for internet access)
 
 ---
 
 # Project Structure
 
-```text
-.
-├── client.cpp
-├── server.cpp
-├── build.bat
-├── README.md
-└── .gitignore
-```
-
----
-
-# Concepts Demonstrated
-
-* TCP Socket Programming
-* Concurrent Client Handling
-* Thread Synchronization
-* Shared Memory Protection
-* Command Processing
-* Object-Oriented Programming
-* Network Programming Fundamentals
-
-
-
-
+server.cpp      -> Chat server
+client.cpp      -> Chat client
+build.bat       -> Windows build script
+README.md       -> Documentation
