@@ -45,25 +45,48 @@ int main(){
         WSACleanup();
         return 1;
     }
-    sockaddr_in serverAddress;
+    
+    std::string serverAddressInput;
 
-    serverAddress.sin_family= AF_INET;
-    serverAddress.sin_port= htons(54000);
+    std::cout<< "Enter server IP or hostname: ";
+    std::getline(std::cin, serverAddressInput);
 
-    inet_pton(
-        AF_INET,
-        "127.0.0.1",
-        &serverAddress.sin_addr
+    addrinfo hints{};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    addrinfo* result = nullptr;
+
+    std::string port;
+
+    std::cout << "Enter server port: ";
+    std::getline(std::cin, port);
+
+    int addressResult = getaddrinfo(
+        serverAddressInput.c_str(),
+        port.c_str(),
+        &hints,
+        &result
     );
+
+    if (addressResult != 0) {
+    std::cout << "Invalid server address or hostname!\n";
+    closesocket(clientSocket);
+    WSACleanup();
+    return 1;
+    }
 
     int connectResult = connect(
         clientSocket,
-        (sockaddr*)&serverAddress,
-        sizeof(serverAddress)
+        result->ai_addr,
+        static_cast<int>(result->ai_addrlen)
     );
+
+    freeaddrinfo(result);
     
     if(connectResult==SOCKET_ERROR){
-        std::cout<< "connection failed!\n";
+        std::cout<< "connection failed! "<< WSAGetLastError() << "\n";
         closesocket(clientSocket);
         WSACleanup();
         return 1;
@@ -93,8 +116,6 @@ int main(){
             break;
         }
         
-
-
 
         
         send(
