@@ -75,32 +75,35 @@ No tunneling software is required.
 
 ---
 
-## Option 3 — Internet Connection (Using Bore. you will have to setup bore to do this)
+## Option 3 - Connecting over the internet with a third party tunnerling service.
 
-To allow users outside your local network to connect:
+The chat server is built using **TCP sockets with Winsock** and already supports network-based client-server communication. The server listens on **port 54000**, and clients can connect using the server's IP address and port.
 
-### Start the server
-./server
+For connections over the **public internet**, the local server needs to be exposed through a TCP tunnel. This project does not depend on a specific tunneling provider; services such as **Pinggy, Bore, ngrok, or similar TCP tunneling solutions** can be used for this purpose.
 
+For example, with Pinggy, the server can be exposed using:
 
-### Start Bore
-bore local 54000 --to bore.pub
+```bash
+ssh -p 443 -R0:127.0.0.1:54000 tcp@free.pinggy.io
+```
 
+The tunnel provides a public TCP address that can then be entered by a remote client.
 
-Bore will print something similar to:
-Listening at bore.pub:42871
+The connection flow is:
 
+```text
+Remote Client
+     ↓
+Public TCP Tunnel
+     ↓
+Local Machine :54000
+     ↓
+C++ TCP Chat Server
+```
 
-Share these details with anyone connecting:
+The tunneling service is **not part of the chat server itself**. It only provides a route from the public internet to the locally running TCP server.
 
-Host: bore.pub
-Port: 42871
-
-
-*(The port changes each time Bore starts.)*
-
-Clients simply enter the provided hostname and port when prompted.
-
+> **Note:** Third-party tunneling services are external infrastructure and their availability, commands, limits, and free-tier policies may change over time. If the example above no longer works, use the current TCP tunneling instructions provided by the service you choose.
 ---
 
 # Features
@@ -139,7 +142,7 @@ Clients simply enter the provided hostname and port when prompted.
 * Multithreading ('std::thread')
 * Mutexes ('std::mutex')
 * 'getaddrinfo()' for hostname resolution
-* Bore (optional, for internet access)
+
 
 ---
 
